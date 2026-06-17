@@ -35,12 +35,15 @@ jobs:
         env:
           VITE_API_URL: /api
 
-      - name: Deploy via FTP
+      - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: 145.79.14.111
           username: u427121666
           password: ${{ secrets.FTP_PASS }}
+          protocol: ftps
+          port: 21
+          timeout: 60000
           local-dir: ./dist/
           server-dir: /domains/chef-alfreej.com/public_html/store/
           dangerous-clean-slate: false
