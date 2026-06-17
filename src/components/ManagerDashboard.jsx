@@ -38,10 +38,17 @@ function LowStockToggle({ value, onChange }) {
   )
 }
 
-function CategoryHeader({ name, count, lowCount }) {
+function CategoryHeader({ name, count, lowCount, collapsed, onToggle }) {
   return (
-    <div className="grid grid-cols-12 px-5 py-2 bg-gray-50 border-y border-gray-200">
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full grid grid-cols-12 px-5 py-2 bg-gray-50 hover:bg-gray-100 border-y border-gray-200 transition-colors text-left"
+    >
       <div className="col-span-12 flex items-center gap-2">
+        <span className="flex items-center justify-center w-5 h-5 rounded-md bg-white border border-gray-300 text-gray-600 font-black text-sm leading-none shrink-0">
+          {collapsed ? '+' : '−'}
+        </span>
         <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{name}</span>
         <div className="flex-1 h-px bg-gray-200" />
         {lowCount > 0 && (
@@ -51,25 +58,36 @@ function CategoryHeader({ name, count, lowCount }) {
         )}
         <span className="text-xs text-gray-400">{count} items</span>
       </div>
-    </div>
+    </button>
   )
 }
 
 export default function ManagerDashboard({ ingredients, categories, loading, onUpdateStock, onFetchLogs, onAddIngredient, onAddCategory }) {
   const [locationFilter, setLocationFilter] = useState('All')
   const [lowStockOnly,   setLowStockOnly]   = useState(false)
+  const [search,         setSearch]         = useState('')
+  const [collapsed,      setCollapsed]      = useState(() => new Set())
   const [updateModal,    setUpdateModal]    = useState(null)
   const [showPrint,      setShowPrint]      = useState(false)
   const [showExport,     setShowExport]     = useState(false)
   const [showAddItem,    setShowAddItem]    = useState(false)
   const [toast,          setToast]          = useState(null)
 
+  const query = search.trim().toLowerCase()
+
   const filtered = useMemo(() => {
     let list = ingredients
     if (locationFilter !== 'All') list = list.filter(i => i.location === locationFilter)
     if (lowStockOnly) list = list.filter(i => i.current_qty <= i.min_limit)
+    if (query) list = list.filter(i => i.name.toLowerCase().includes(query))
     return list
-  }, [ingredients, locationFilter, lowStockOnly])
+  }, [ingredients, locationFilter, lowStockOnly, query])
+
+  const toggleCategory = (cat) => setCollapsed(prev => {
+    const next = new Set(prev)
+    next.has(cat) ? next.delete(cat) : next.add(cat)
+    return next
+  })
 
   // Group by category, sorted
   const grouped = useMemo(() => {
@@ -150,6 +168,26 @@ export default function ManagerDashboard({ ingredients, categories, loading, onU
           ))}
         </div>
 
+        {/* Search */}
+        <div className="relative mb-4">
+          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search ingredients by name…"
+            className="w-full h-12 pl-12 pr-12 rounded-2xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-800 outline-none transition-colors focus:border-orange-400 placeholder:text-gray-400"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 text-sm font-bold transition-colors">
+              ✕
+            </button>
+          )}
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-2xl border border-gray-200 p-4 mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -203,10 +241,12 @@ export default function ManagerDashboard({ ingredients, categories, loading, onU
             <div>
               {grouped.map(([cat, items]) => {
                 const lowInCat = items.filter(i => i.current_qty <= i.min_limit).length
+                const isCollapsed = collapsed.has(cat) && !query
                 return (
                   <div key={cat}>
-                    <CategoryHeader name={cat} count={items.length} lowCount={lowInCat} />
-                    <div className="divide-y divide-gray-50">
+                    <CategoryHeader name={cat} count={items.length} lowCount={lowInCat}
+                      collapsed={isCollapsed} onToggle={() => toggleCategory(cat)} />
+                    <div className={isCollapsed ? 'hidden' : 'divide-y divide-gray-50'}>
                       {items.map(item => {
                         const isLow = item.current_qty <= item.min_limit
                         return (

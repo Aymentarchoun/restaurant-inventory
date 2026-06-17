@@ -12,11 +12,16 @@ export default function KitchenDashboard({ ingredients, loading, onSubmit }) {
   const [staffName,  setStaffName]  = useState('')
   const [entries,    setEntries]    = useState({})
   const [submitting, setSubmitting] = useState(false)
+  const [search,     setSearch]     = useState('')
+  const [collapsed,  setCollapsed]  = useState(() => new Set())
   const [toast,      setToast]      = useState(null)
+
+  const query = search.trim().toLowerCase()
 
   // Items for active location, grouped by category
   const grouped = useMemo(() => {
-    const list = ingredients.filter(i => i.location === location)
+    let list = ingredients.filter(i => i.location === location)
+    if (query) list = list.filter(i => i.name.toLowerCase().includes(query))
     const map = {}
     list.forEach(item => {
       const cat = item.category || 'Other'
@@ -26,7 +31,13 @@ export default function KitchenDashboard({ ingredients, loading, onSubmit }) {
     // sort items within each group by name
     Object.values(map).forEach(arr => arr.sort((a,b) => a.name.localeCompare(b.name)))
     return Object.entries(map).sort(([a],[b]) => a.localeCompare(b))
-  }, [ingredients, location])
+  }, [ingredients, location, query])
+
+  const toggleCategory = (cat) => setCollapsed(prev => {
+    const next = new Set(prev)
+    next.has(cat) ? next.delete(cat) : next.add(cat)
+    return next
+  })
 
   const lowCount = useMemo(
     () => ingredients.filter(i => i.location === location && i.current_qty <= i.min_limit).length,
@@ -100,6 +111,28 @@ export default function KitchenDashboard({ ingredients, loading, onSubmit }) {
         </select>
       </div>
 
+      {/* Search */}
+      <div className="px-4 pt-3">
+        <div className="relative">
+          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search ingredients…"
+            className="w-full h-11 pl-12 pr-11 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium text-gray-800 outline-none transition-colors focus:border-orange-400 placeholder:text-gray-400"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm font-bold">
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Ingredient list grouped by category */}
       <div className="px-4 pt-4 pb-32 space-y-6">
         {loading ? (
@@ -112,26 +145,35 @@ export default function KitchenDashboard({ ingredients, loading, onSubmit }) {
             <p className="font-medium">No ingredients found</p>
           </div>
         ) : (
-          grouped.map(([cat, items]) => (
-            <div key={cat}>
-              {/* Category header */}
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{cat}</span>
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400">{items.length}</span>
+          grouped.map(([cat, items]) => {
+            const isCollapsed = collapsed.has(cat) && !query
+            return (
+              <div key={cat}>
+                {/* Category header */}
+                <button type="button" onClick={() => toggleCategory(cat)}
+                  className="w-full flex items-center gap-2 mb-2 text-left">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-md bg-white border border-gray-300 text-gray-600 font-black text-sm leading-none shrink-0">
+                    {isCollapsed ? '+' : '−'}
+                  </span>
+                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{cat}</span>
+                  <div className="flex-1 h-px bg-gray-200" />
+                  <span className="text-xs text-gray-400">{items.length}</span>
+                </button>
+                {!isCollapsed && (
+                  <div className="space-y-3">
+                    {items.map(ingredient => (
+                      <IngredientCard
+                        key={ingredient.id}
+                        ingredient={ingredient}
+                        value={entries[ingredient.id] || 0}
+                        onChange={qty => handleEntry(ingredient.id, qty)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="space-y-3">
-                {items.map(ingredient => (
-                  <IngredientCard
-                    key={ingredient.id}
-                    ingredient={ingredient}
-                    value={entries[ingredient.id] || 0}
-                    onChange={qty => handleEntry(ingredient.id, qty)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))
+            )
+          })
         )}
       </div>
 
