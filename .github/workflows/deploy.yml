@@ -35,14 +35,12 @@ jobs:
         env:
           VITE_API_URL: /api
 
-      - name: Deploy dist to hostinger-deploy branch
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          cd dist
-          git init
-          git add -A
-          git commit -m "deploy: $(date -u '+%Y-%m-%d %H:%M UTC')"
-          git push --force \
-            "https://x-access-token:${{ secrets.DEPLOY_TOKEN }}@github.com/${{ github.repository }}.git" \
-            HEAD:hostinger-deploy
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: 145.79.14.111
+          username: u427121666
+          password: ${{ secrets.FTP_PASS }}
+          local-dir: ./dist/
+          server-dir: /public_html/store/
+          dangerous-clean-slate: false
